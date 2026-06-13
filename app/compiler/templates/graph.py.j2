@@ -1,0 +1,85 @@
+from typing import TypedDict, Annotated, Any
+from langgraph.graph import StateGraph, START, END
+from langchain_core.messages import AnyMessage, add_messages
+
+class State(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+    context: dict[str, Any]
+
+# Define Node Functions
+{% for node in nodes %}
+def {{ node.id.replace('-', '_') }}_node(state: State):
+    {% if node.type == 'llm' %}
+    # LLM Node: {{ node.model_config.get('model', 'default-model') }}
+    # Provider: {{ node.model_config.get('provider', 'openai') }}
+    # Temperature: {{ node.model_config.get('temperature', 0.7) }}
+    # System Prompt: {{ node.model_config.get('system_prompt', '') }}
+    print("Executing LLM Node: {{ node.id }}")
+    return {"context": {"last_action": "{{ node.id }}"}}
+    
+    {% elif node.type == 'agent' %}
+    # Agent Node
+    # Prompt: {{ node.model_config.get('agent_prompt', 'Default Prompt') }}
+    print("Executing Agent Node: {{ node.id }}")
+    return {"context": {"last_action": "{{ node.id }}"}}
+
+    {% elif node.type == 'tool' %}
+    # Tool Node
+    # Tool Name: {{ node.model_config.get('tool_name', '') }}
+    # Config: {{ node.model_config.get('config', '') }}
+    print("Executing Tool Node: {{ node.id }}")
+    return {"context": {"last_action": "{{ node.id }}"}}
+
+    {% elif node.type == 'rag' %}
+    # RAG Node
+    # Embedding Model: {{ node.model_config.get('embedding_model', 'openai') }}
+    # Collection: {{ node.model_config.get('collection', '') }}
+    print("Executing RAG Node: {{ node.id }}")
+    return {"context": {"last_action": "{{ node.id }}"}}
+
+    {% elif node.type == 'input' %}
+    # Input Node
+    print("Executing Input Node: {{ node.id }}")
+    return {"context": {"last_action": "{{ node.id }}"}}
+    
+    {% elif node.type == 'output' %}
+    # Output Node
+    print("Executing Output Node: {{ node.id }}")
+    return {"context": {"last_action": "{{ node.id }}"}}
+
+    {% else %}
+    # Generic Node ({{ node.type }})
+    print("Executing Generic Node: {{ node.id }}")
+    return {"context": {"last_action": "{{ node.id }}"}}
+    {% endif %}
+
+{% endfor %}
+
+# Build Graph
+graph_builder = StateGraph(State)
+
+# Add Nodes
+{% for node in nodes %}
+graph_builder.add_node("{{ node.id }}", {{ node.id.replace('-', '_') }}_node)
+{% endfor %}
+
+# Add Edges
+{% for edge in edges %}
+graph_builder.add_edge("{{ edge.source }}", "{{ edge.target }}")
+{% endfor %}
+
+# Connect Input nodes to START
+{% for node in nodes %}
+{% if node.type in ['user_input', 'api_input', 'file_input', 'input'] %}
+graph_builder.add_edge(START, "{{ node.id }}")
+{% endif %}
+{% endfor %}
+
+# Connect Output nodes to END
+{% for node in nodes %}
+{% if node.type in ['text_response', 'json_response', 'api_response', 'output'] %}
+graph_builder.add_edge("{{ node.id }}", END)
+{% endif %}
+{% endfor %}
+
+graph = graph_builder.compile()

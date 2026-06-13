@@ -1,0 +1,18 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+from app.graph import graph
+
+app = FastAPI(title="Generated AgentForge App")
+
+class InvokeRequest(BaseModel):
+    input: str
+
+@app.post("/invoke")
+async def invoke(request: InvokeRequest):
+    # Depending on graph structure, we might pass dict
+    result = graph.invoke({"input": request.input})
+    return {"result": result}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
